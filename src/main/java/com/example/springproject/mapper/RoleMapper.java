@@ -3,9 +3,10 @@ package com.example.springproject.mapper;
 
 
 
+import com.example.springproject.entity.Role;
 import org.apache.ibatis.annotations.*;
 
-import javax.management.relation.Role;
+
 import java.util.Optional;
 
 @Mapper

@@ -1,11 +1,9 @@
 package com.example.springproject.service;
 
-
 import com.example.springproject.entity.Event;
 import com.example.springproject.entity.Registration;
 import com.example.springproject.repository.EventRepository;
 import com.example.springproject.repository.RegistrationRepository;
-import com.example.springproject.entity.Event;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,75 +23,43 @@ public class RegistrationService {
 
     @Transactional(readOnly = true)
     public List<Registration> getUserRegistrations(Long userId) {
-        log.debug("Getting registrations for user ID: {}", userId);
-        List<Registration> registrations = registrationRepository.findByUserId(userId);
-        log.info("Retrieved {} registrations for user {}", registrations.size(), userId);
-        return registrations;
+        return registrationRepository.findByUserId(userId);
     }
 
     @Transactional(readOnly = true)
     public List<Registration> getEventRegistrations(Long eventId) {
-        log.debug("Getting registrations for event ID: {}", eventId);
-        List<Registration> registrations = registrationRepository.findByEventId(eventId);
-        log.info("Retrieved {} registrations for event {}", registrations.size(), eventId);
-        return registrations;
+        return registrationRepository.findByEventId(eventId);
     }
 
     @Transactional(readOnly = true)
     public Optional<Registration> getRegistration(Long userId, Long eventId) {
-        log.debug("Getting registration for user {} and event {}", userId, eventId);
-        Optional<Registration> registration = registrationRepository.findByUserIdAndEventId(userId, eventId);
-        registration.ifPresentOrElse(
-                r -> log.debug("Registration found"),
-                () -> log.debug("Registration not found for user {} and event {}", userId, eventId)
-        );
-        return registration;
+        return registrationRepository.findByUserIdAndEventId(userId, eventId);
     }
 
     @Transactional(readOnly = true)
     public Integer getEventRegistrationCount(Long eventId) {
-        log.debug("Getting registration count for event: {}", eventId);
-        Integer count = registrationRepository.countByEventId(eventId);
-        log.info("Event {} has {} registrations", eventId, count);
-        return count;
+        return registrationRepository.countByEventId(eventId);
     }
 
     @Transactional(readOnly = true)
     public boolean isUserRegistered(Long userId, Long eventId) {
-        log.debug("Checking if user {} is registered for event {}", userId, eventId);
-        boolean isRegistered = registrationRepository.existsByUserIdAndEventId(userId, eventId);
-        log.debug("User {} registered for event {}: {}", userId, eventId, isRegistered);
-        return isRegistered;
+        return registrationRepository.existsByUserIdAndEventId(userId, eventId);
     }
 
     @Transactional
     public Registration registerForEvent(Long userId, Long eventId) {
-        log.info("Registering user {} for event {}", userId, eventId);
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Event not found with ID: " + eventId));
 
-        // Check if event exists
-
-        Optional<Event> event = eventRepository.findById(eventId);
-        if (event.isEmpty()) {
-            log.warn("Event not found with ID: {}", eventId);
-            throw new IllegalArgumentException("Event not found with ID: " + eventId);
-        }
-
-        // Check if user is already registered
         if (isUserRegistered(userId, eventId)) {
-            log.warn("User {} already registered for event {}", userId, eventId);
             throw new IllegalArgumentException("User already registered for this event");
         }
 
-        // Check event capacity
-        Integer currentRegistrations = getEventRegistrationCount(eventId);
-        if (event.get().getCapacity() != null && currentRegistrations >= event.get().getCapacity()) {
-            log.warn("Event {} is at full capacity", eventId);
+        if (event.getCapacity() != null && getEventRegistrationCount(eventId) >= event.getCapacity()) {
             throw new IllegalArgumentException("Event is full");
         }
 
-        // Check if event is active
         if (!eventService.isEventActive(eventId)) {
-            log.warn("Event {} is not active", eventId);
             throw new IllegalArgumentException("Event is not active");
         }
 
@@ -106,63 +72,38 @@ public class RegistrationService {
                 .build();
 
         registrationRepository.save(registration);
-        log.info("User {} successfully registered for event {}", userId, eventId);
         return registration;
     }
 
     @Transactional
     public void cancelRegistration(Long userId, Long eventId) {
-        log.info("Cancelling registration for user {} and event {}", userId, eventId);
-
-        Optional<Registration> registration = registrationRepository.findByUserIdAndEventId(userId, eventId);
-        if (registration.isEmpty()) {
-            log.warn("Registration not found for user {} and event {}", userId, eventId);
+        if (registrationRepository.findByUserIdAndEventId(userId, eventId).isEmpty()) {
             throw new IllegalArgumentException("Registration not found");
         }
-
         registrationRepository.deleteByUserIdAndEventId(userId, eventId);
-        log.info("Registration cancelled for user {} and event {}", userId, eventId);
     }
 
     @Transactional
     public void cancelRegistrationById(Long registrationId) {
-        log.info("Cancelling registration with ID: {}", registrationId);
-
-        Optional<Registration> registration = registrationRepository.findById(registrationId);
-        if (registration.isEmpty()) {
-            log.warn("Registration not found with ID: {}", registrationId);
+        if (registrationRepository.findById(registrationId).isEmpty()) {
             throw new IllegalArgumentException("Registration not found with ID: " + registrationId);
         }
-
         registrationRepository.deleteById(registrationId);
-        log.info("Registration cancelled with ID: {}", registrationId);
     }
 
     @Transactional(readOnly = true)
     public boolean canUserRegister(Long userId, Long eventId) {
-        log.debug("Checking if user {} can register for event {}", userId, eventId);
-
-        // Check if event exists and is active
         Optional<Event> event = eventRepository.findById(eventId);
         if (event.isEmpty() || !eventService.isEventActive(eventId)) {
-            log.debug("Event {} not found or not active", eventId);
             return false;
         }
-
-        // Check if user is already registered
         if (isUserRegistered(userId, eventId)) {
-            log.debug("User {} already registered for event {}", userId, eventId);
             return false;
         }
-
-        // Check event capacity
-        Integer currentRegistrations = getEventRegistrationCount(eventId);
-        if (event.get().getCapacity() != null && currentRegistrations >= event.get().getCapacity()) {
-            log.debug("Event {} is at full capacity", eventId);
+        if (event.get().getCapacity() != null &&
+                getEventRegistrationCount(eventId) >= event.get().getCapacity()) {
             return false;
         }
-
-        log.debug("User {} can register for event {}", userId, eventId);
         return true;
     }
 }

@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -19,127 +18,70 @@ public class EventService {
 
     @Transactional(readOnly = true)
     public List<Event> getAllEvents() {
-        log.debug("Getting all events");
-        List<Event> events = eventRepository.findAllOrderByDateAsc();
-        log.info("Retrieved {} events", events.size());
-        return events;
+        return eventRepository.findAllOrderByDateAsc();
     }
 
     @Transactional(readOnly = true)
-    public Optional<Event> getEventById(Long id) {
-        log.debug("Getting event by ID: {}", id);
-        Optional<Event> event = eventRepository.findById(id);
-        event.ifPresentOrElse(
-                e -> log.debug("Event found: {}", e.getName()),
-                () -> log.warn("Event not found with ID: {}", id)
-        );
-        return event;
+    public Event getEventById(Long id) {
+        return eventRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Event not found with ID: " + id));
     }
 
     @Transactional(readOnly = true)
     public List<Event> searchEvents(String name) {
-        log.debug("Searching events with name containing: {}", name);
-        List<Event> events = eventRepository.findByNameContaining(name);
-        log.info("Found {} events matching search: {}", events.size(), name);
-        return events;
-    }
-
-    @Transactional(readOnly = true)
-    public boolean eventExists(Long id) {
-        log.debug("Checking if event exists with ID: {}", id);
-        return eventRepository.existsById(id);
+        return eventRepository.findByNameContaining(name);
     }
 
     @Transactional
-    public Event createEvent(String name, String description, LocalDateTime date,
-                             String location, Integer capacity) {
-        log.info("Creating new event: {}", name);
-
-        if (capacity != null && capacity < 1) {
-            log.warn("Invalid capacity for event: {}", capacity);
-            throw new IllegalArgumentException("Event capacity must be at least 1");
-        }
-
-        if (date != null && date.isBefore(LocalDateTime.now())) {
-            log.warn("Event date is in the past: {}", date);
-            throw new IllegalArgumentException("Event date cannot be in the past");
-        }
-
-        Event event = Event.builder()
-                .name(name)
-                .description(description)
-                .date(date)
-                .location(location)
-                .capacity(capacity)
-                .createdOn(LocalDateTime.now())
-                .updatedOn(LocalDateTime.now())
-                .build();
-
-        eventRepository.save(event);
-        log.info("Event created successfully with ID: {}", event.getId());
-        return event;
-    }
-
-    @Transactional
-    public Event updateEvent(Long id, String name, String description, LocalDateTime date,
-                             String location, Integer capacity) {
-        log.info("Updating event with ID: {}", id);
-
-        Optional<Event> existingEvent = eventRepository.findById(id);
-        if (existingEvent.isEmpty()) {
-            log.warn("Event not found for update with ID: {}", id);
-            throw new IllegalArgumentException("Event not found with ID: " + id);
-        }
-
-        if (capacity != null && capacity < 1) {
-            log.warn("Invalid capacity for event: {}", capacity);
-            throw new IllegalArgumentException("Event capacity must be at least 1");
-        }
-
-        if (date != null && date.isBefore(LocalDateTime.now())) {
-            log.warn("Event date is in the past: {}", date);
-            throw new IllegalArgumentException("Event date cannot be in the past");
-        }
-
-        Event event = existingEvent.get();
-        event.setName(name);
-        event.setDescription(description);
-        event.setDate(date);
-        event.setLocation(location);
-        event.setCapacity(capacity);
+    public Event createEvent(Event event) {
+        validateEvent(event);
+        event.setCreatedOn(LocalDateTime.now());
         event.setUpdatedOn(LocalDateTime.now());
-
-        eventRepository.update(event);
-        log.info("Event updated successfully: {}", event.getName());
+        eventRepository.save(event);
         return event;
+    }
+
+    @Transactional
+    public Event updateEvent(Long id, Event updatedEvent) {
+        Event existingEvent = getEventById(id);
+        validateEvent(updatedEvent);
+
+        existingEvent.setName(updatedEvent.getName());
+        existingEvent.setDescription(updatedEvent.getDescription());
+        existingEvent.setDate(updatedEvent.getDate());
+        existingEvent.setLocation(updatedEvent.getLocation());
+        existingEvent.setCapacity(updatedEvent.getCapacity());
+        existingEvent.setUpdatedOn(LocalDateTime.now());
+
+        eventRepository.update(existingEvent);
+        return existingEvent;
     }
 
     @Transactional
     public void deleteEvent(Long id) {
-        log.info("Deleting event with ID: {}", id);
-
         if (!eventRepository.existsById(id)) {
-            log.warn("Event not found for deletion with ID: {}", id);
             throw new IllegalArgumentException("Event not found with ID: " + id);
         }
-
         eventRepository.deleteById(id);
-        log.info("Event deleted successfully with ID: {}", id);
     }
 
-    @Transactional(readOnly = true)
-    public boolean isEventFull(Long eventId) {
-        log.debug("Checking if event is full: {}", eventId);
-        // This would be implemented with registration service
-        // For now, we'll assume it's not full
-        return false;
+    private void validateEvent(Event event) {
+        if (event.getCapacity() != null && event.getCapacity() < 1) {
+            throw new IllegalArgumentException("Event capacity must be at least 1");
+        }
+        if (event.getDate() != null && event.getDate().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Event date cannot be in the past");
+        }
     }
 
     @Transactional(readOnly = true)
     public boolean isEventActive(Long eventId) {
-        log.debug("Checking if event is active: {}", eventId);
-        Optional<Event> event = eventRepository.findById(eventId);
-        return event.map(e -> e.getDate() == null || e.getDate().isAfter(LocalDateTime.now()))
+        return eventRepository.findById(eventId)
+                .map(event -> {
+                    boolean active = event.getDate().isAfter(LocalDateTime.now());
+                    log.debug("Event {} active: {}", eventId, active);
+                    return active;
+                })
                 .orElse(false);
     }
 }

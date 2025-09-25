@@ -1,91 +1,87 @@
 package com.example.springproject.controller;
 
-
 import com.example.springproject.entity.User;
-import com.example.springproject.repository.UserRepository;
+import com.example.springproject.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 @Slf4j
 public class UserController {
-    private final UserRepository userRepository;
+
+    private final UserService userService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> getAllUsers() {
+    public ResponseEntity<?> getAllUsers() {
         log.info("Fetching all users (admin only)");
-        // In a real implementation, you would have a service method to get all users
-        // For this example, we'll return an empty list as we don't have that method
-        return ResponseEntity.ok(List.of());
+        try {
+            List<User> users = userService.getAllUsers();
+            return ResponseEntity.ok(users);
+        } catch (Exception e) {
+            log.error("Failed to fetch users", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Unable to fetch users"));
+        }
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+    public ResponseEntity<?> getUserById(@PathVariable Long id) {
         log.info("Fetching user with id: {}", id);
-        try {
-            Optional<User> user = userRepository.findById(id);
-            if (user.isPresent()) {
-                log.info("User found: {}", user.get().getUsername());
-                return ResponseEntity.ok(user.get());
-            } else {
-                log.warn("User not found with id: {}", id);
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {
-            log.error("Error fetching user with id: {}", id, e);
-            return ResponseEntity.internalServerError().build();
-        }
+        return userService.getUserById(id)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> {
+                    log.warn("User not found with id: {}", id);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of("error", "User not found"));
+                });
     }
 
     @GetMapping("/profile")
     @PreAuthorize("hasRole('USER') or hasRole('ADMIN')")
-    public ResponseEntity<User> getCurrentUserProfile() {
-        log.info("Fetching current user profile");
-        // In a real implementation, you'd get the current user from security context
-        // For this example, we'll return a mock response
-        try {
-            // This would be the actual implementation:
-            // String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            // Optional<User> user = userRepository.findByUsername(username);
+    public ResponseEntity<?> getCurrentUserProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        log.info("Fetching profile for current user: {}", username);
 
-            Optional<User> user = userRepository.findById(1L); // Mock
-            if (user.isPresent()) {
-                return ResponseEntity.ok(user.get());
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {
-            log.error("Error fetching user profile", e);
-            return ResponseEntity.internalServerError().build();
-        }
+        return userService.getUserByUsername(username)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> {
+                    log.warn("Profile not found for user: {}", username);
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of("error", "Profile not found"));
+                });
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
-        log.info("Deleting user with id: {}", id);
+        log.info("Attempting to delete user with id: {}", id);
         try {
-            if (userRepository.findById(id).isPresent()) {
-                userRepository.deleteById(id);
-                log.info("User deleted successfully with id: {}", id);
-                return ResponseEntity.ok().build();
-            } else {
-                log.warn("User not found for deletion with id: {}", id);
-                return ResponseEntity.notFound().build();
+            if (userService.getUserById(id).isEmpty()) {
+                log.warn("User not found with id: {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "User not found"));
             }
+            userService.deleteUser(id);
+            log.info("User with id {} deleted successfully", id);
+            return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
         } catch (Exception e) {
-            log.error("Error deleting user with id: {}", id, e);
-            return ResponseEntity.internalServerError().build();
+            log.error("Failed to delete user with id: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Unable to delete user"));
         }
     }
 }

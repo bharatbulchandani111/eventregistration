@@ -1,5 +1,6 @@
 package com.example.springproject.service;
 
+import com.example.springproject.dto.JwtResponse;
 import com.example.springproject.entity.User;
 import com.example.springproject.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -22,42 +23,78 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final UserService userService;
 
+//    @Transactional(readOnly = true)
+//    public String authenticateUser(String username, String password) {
+//        log.info("Authenticating user: {}", username);
+//
+//        try {
+//            Authentication authentication = authenticationManager.authenticateUser(
+//                    new UsernamePasswordAuthenticationToken(username, password));
+//
+//            SecurityContextHolder.getContext().setAuthentication(authentication);
+//            String jwt = jwtUtil.generateJwtToken(authentication);
+//
+//            log.info("User {} authenticated successfully with roles: {}", username,
+//                    authentication.getAuthorities().stream()
+//                            .map(GrantedAuthority::getAuthority)
+//                            .collect(Collectors.joining(", ")));
+//            return jwt;
+//
+//        } catch (Exception e) {
+//            log.error("Authentication failed for user: {}", username, e);
+//            throw new IllegalArgumentException("Invalid credentials");
+//        }
+//    }
+//
+//    @Transactional(readOnly = true)
+//    public User getCurrentUser() {
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//        if (authentication == null || !authentication.isAuthenticated()) {
+//            log.warn("No authenticated user found");
+//            throw new IllegalStateException("No authenticated user");
+//        }
+//
+//        String username = authentication.getName();
+//        log.debug("Getting current user: {}", username);
+//
+//        return (User) userService.loadUserByUsername(username);
+//    }
+
+
     @Transactional(readOnly = true)
-    public String authenticateUser(String username, String password) {
+    public JwtResponse authenticateUser(String username, String password) {
         log.info("Authenticating user: {}", username);
 
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(username, password));
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, password));
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            String jwt = jwtUtil.generateJwtToken(authentication);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtUtil.generateJwtToken(authentication);
 
-            log.info("User {} authenticated successfully with roles: {}", username,
-                    authentication.getAuthorities().stream()
-                            .map(GrantedAuthority::getAuthority)
-                            .collect(Collectors.joining(", ")));
-            return jwt;
+        User user = (User) authentication.getPrincipal();
+        String roles = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(","));
 
-        } catch (Exception e) {
-            log.error("Authentication failed for user: {}", username, e);
-            throw new IllegalArgumentException("Invalid credentials");
-        }
+        log.info("User {} authenticated successfully with roles: {}", username, roles);
+
+        return new JwtResponse(jwt, user.getId(), user.getUsername(), user.getEmail(), roles);
     }
 
     @Transactional(readOnly = true)
     public User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
         if (authentication == null || !authentication.isAuthenticated()) {
-            log.warn("No authenticated user found");
-            throw new IllegalStateException("No authenticated user");
+            throw new IllegalStateException("No authenticated user found");
         }
 
         String username = authentication.getName();
-        log.debug("Getting current user: {}", username);
+        log.debug("Retrieving current user: {}", username);
 
         return (User) userService.loadUserByUsername(username);
     }
+
 
     @Transactional(readOnly = true)
     public Long getCurrentUserId() {

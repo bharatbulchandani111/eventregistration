@@ -40,13 +40,13 @@ public class User extends BaseEntity implements UserDetails {
 
     private Set<Role> roles = new HashSet<>();
 
-    // UserDetails methods
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return roles.stream()
-                .map(role -> new SimpleGrantedAuthority(role.getName()))
-                .collect(Collectors.toSet());
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName().toUpperCase()))
+                .collect(Collectors.toList());
     }
+
 
     @Override
     public boolean isAccountNonExpired() {

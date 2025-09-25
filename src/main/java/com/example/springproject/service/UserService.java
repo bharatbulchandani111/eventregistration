@@ -1,7 +1,11 @@
 package com.example.springproject.service;
 
+import com.example.springproject.dto.SignupRequest;
+import com.example.springproject.entity.Role;
 import com.example.springproject.entity.User;
+import com.example.springproject.mapper.UserMapper;
 import com.example.springproject.repository.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,7 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static org.bouncycastle.cms.RecipientId.password;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +40,7 @@ public class UserService implements UserDetailsService {
             throw new UsernameNotFoundException("User not found with username: " + username);
         }
         User userEntity = user.get();
+
         log.info("User loaded successfully: {} with {} roles", username, userEntity.getAuthorities().size());
         return userEntity;
     }
@@ -171,5 +180,38 @@ public class UserService implements UserDetailsService {
         boolean isValid = passwordEncoder.matches(password, user.get().getPassword());
         log.debug("Credential validation result for {}: {}", username, isValid);
         return isValid;
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
+
+    public User registerNewUser(@Valid SignupRequest signUpRequest) {
+        String username = signUpRequest.getUsername();
+        String email = signUpRequest.getEmail();
+        String password = signUpRequest.getPassword();
+        log.info("Creating new user: {}", username);
+
+        if (usernameExists(username)) {
+            log.warn("Username already exists: {}", username);
+            throw new IllegalArgumentException("Username already exists: " + username);
+        }
+
+        if (emailExists(email)) {
+            log.warn("Email already exists: {}", email);
+            throw new IllegalArgumentException("Email already exists: " + email);
+        }
+
+        User user = User.builder()
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .createdOn(LocalDateTime.now())
+                .updatedOn(LocalDateTime.now())
+                .build();
+
+        userRepository.save(user);
+        log.info("User created successfully with ID: {}", user.getId());
+        return user;
     }
 }

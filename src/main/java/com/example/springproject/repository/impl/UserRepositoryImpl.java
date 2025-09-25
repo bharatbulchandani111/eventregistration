@@ -5,6 +5,8 @@ import com.example.springproject.mapper.UserMapper;
 import com.example.springproject.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -51,4 +53,10 @@ public class UserRepositoryImpl implements UserRepository {
     public void deleteById(Long id) {
         userMapper.deleteById(id);
     }
+
+    @Override
+    public List<User> findAll() {
+        return userMapper.findAll();
+    }
+
 }

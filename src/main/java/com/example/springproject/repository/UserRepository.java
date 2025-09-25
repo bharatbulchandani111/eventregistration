@@ -4,6 +4,7 @@ package com.example.springproject.repository;
 
 import com.example.springproject.entity.User;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository {
@@ -15,4 +16,6 @@ public interface UserRepository {
     void save(User user);
     void update(User user);
     void deleteById(Long id);
+    List<User> findAll();
+
 }
