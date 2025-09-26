@@ -1,9 +1,7 @@
 package com.example.springproject.service;
 
 import com.example.springproject.dto.SignupRequest;
-import com.example.springproject.entity.Role;
 import com.example.springproject.entity.User;
-import com.example.springproject.mapper.UserMapper;
 import com.example.springproject.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,14 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
-import static org.bouncycastle.cms.RecipientId.password;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserService implements UserDetailsService {
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -33,18 +29,15 @@ public class UserService implements UserDetailsService {
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         log.debug("Loading user by username: {}", username);
-
         Optional<User> user = userRepository.findByUsername(username);
         if (user.isEmpty()) {
             log.warn("User not found with username: {}", username);
             throw new UsernameNotFoundException("User not found with username: " + username);
         }
         User userEntity = user.get();
-
         log.info("User loaded successfully: {} with {} roles", username, userEntity.getAuthorities().size());
         return userEntity;
     }
-
 
     @Transactional(readOnly = true)
     public Optional<User> getUserById(Long id) {
@@ -115,13 +108,11 @@ public class UserService implements UserDetailsService {
 
         User user = existingUser.get();
 
-        // Check if new username is taken by another user
         if (!user.getUsername().equals(username) && usernameExists(username)) {
             log.warn("Username already taken: {}", username);
             throw new IllegalArgumentException("Username already taken: " + username);
         }
 
-        // Check if new email is taken by another user
         if (!user.getEmail().equals(email) && emailExists(email)) {
             log.warn("Email already taken: {}", email);
             throw new IllegalArgumentException("Email already taken: " + email);
@@ -186,6 +177,7 @@ public class UserService implements UserDetailsService {
         return userRepository.findAll();
     }
 
+    @Transactional
     public User registerNewUser(@Valid SignupRequest signUpRequest) {
         String username = signUpRequest.getUsername();
         String email = signUpRequest.getEmail();

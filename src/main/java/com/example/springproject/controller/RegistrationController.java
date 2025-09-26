@@ -25,7 +25,7 @@ public class RegistrationController {
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         // TODO: Replace with actual user ID retrieval from your UserDetails/Principal
-        return 1L;
+        return 4L;
     }
 
     @GetMapping("/my-registrations")
