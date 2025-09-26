@@ -4,6 +4,9 @@ import com.example.springproject.entity.Event;
 import com.example.springproject.repository.EventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,31 +20,41 @@ public class EventService {
     private final EventRepository eventRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "events:all")
     public List<Event> getAllEvents() {
+        log.info("Fetching all events from DB");
         return eventRepository.findAllOrderByDateAsc();
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "events", key = "#id")
     public Event getEventById(Long id) {
+        log.info("Fetching event {} from DB", id);
         return eventRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found with ID: " + id));
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "events:search", key = "#name")
     public List<Event> searchEvents(String name) {
+        log.info("Searching events by name: {}", name);
         return eventRepository.findByNameContaining(name);
     }
 
     @Transactional
+    @CacheEvict(value = {"events:all", "events:search"}, allEntries = true)
     public Event createEvent(Event event) {
         validateEvent(event);
         event.setCreatedOn(LocalDateTime.now());
         event.setUpdatedOn(LocalDateTime.now());
         eventRepository.save(event);
+        log.info("Created event {}", event.getName());
         return event;
     }
 
     @Transactional
+    @CachePut(value = "events", key = "#id")
+    @CacheEvict(value = {"events:all", "events:search"}, allEntries = true)
     public Event updateEvent(Long id, Event updatedEvent) {
         Event existingEvent = getEventById(id);
         validateEvent(updatedEvent);
@@ -54,15 +67,18 @@ public class EventService {
         existingEvent.setUpdatedOn(LocalDateTime.now());
 
         eventRepository.update(existingEvent);
+        log.info("Updated event {}", id);
         return existingEvent;
     }
 
     @Transactional
+    @CacheEvict(value = {"events", "events:all", "events:search"}, key = "#id", allEntries = true)
     public void deleteEvent(Long id) {
         if (!eventRepository.existsById(id)) {
             throw new IllegalArgumentException("Event not found with ID: " + id);
         }
         eventRepository.deleteById(id);
+        log.info("Deleted event {}", id);
     }
 
     private void validateEvent(Event event) {
@@ -75,13 +91,11 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "events:active", key = "#eventId")
     public boolean isEventActive(Long eventId) {
+        log.debug("Checking if event {} is active", eventId);
         return eventRepository.findById(eventId)
-                .map(event -> {
-                    boolean active = event.getDate().isAfter(LocalDateTime.now());
-                    log.debug("Event {} active: {}", eventId, active);
-                    return active;
-                })
+                .map(event -> event.getDate().isAfter(LocalDateTime.now()))
                 .orElse(false);
     }
 }

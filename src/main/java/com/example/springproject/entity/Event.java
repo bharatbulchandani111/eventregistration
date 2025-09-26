@@ -1,6 +1,7 @@
 package com.example.springproject.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -26,6 +27,7 @@ public class Event extends BaseEntity {
     @Size(max = 500)
     private String description;
 
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime date;
 
     @NotBlank
